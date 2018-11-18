@@ -43,33 +43,48 @@ class image_converter:
     mask = cv2.inRange(hsv, (0, 0, 0), (0, 255,255))
     rgbMask = cv2.cvtColor(mask,cv2.COLOR_GRAY2BGR)
     shadowless = cv2.subtract(cv_image,rgbMask)
-
-    #detect shapes
     gray = cv2.cvtColor(shadowless, cv2.COLOR_BGR2GRAY)
-    ret,thresh = cv2.threshold(gray,10,255,1)
-    inverted=cv2.bitwise_not(thresh)
-    blurred = cv2.dilate(inverted,np.ones((5, 5), np.uint8),iterations = 2 )
-    image, contours, h = cv2.findContours(blurred,1,2)
-    contouredImg=cv_image.copy()
 
-    cmask = np.zeros(gray.shape,np.uint8)
-    for cnt in contours:
-        approx = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
-        print("Detected shape has "+str(len(approx)))
-        cv2.drawContours(cmask,[cnt],0,255,-1) #draw on mask
-        cv2.drawContours(contouredImg,[cnt],0,cv2.mean(cv_image,cmask),-1) #draw avarage color on img
+    # #detect shapes
+    # ret,thresh = cv2.threshold(gray,10,255,1)
+    # inverted=cv2.bitwise_not(thresh)
+    # blurred = cv2.dilate(inverted,np.ones((5, 5), np.uint8),iterations = 2 )
+    # image, contours, h = cv2.findContours(blurred,1,2)
+    # contouredImg=cv_image.copy()
+    #
+    # cmask = np.zeros(gray.shape,np.uint8)
+    # for cnt in contours:
+    #     approx = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
+    #     print("Detected shape has "+str(len(approx)))
+    #     cv2.drawContours(cmask,[cnt],0,255,-1) #draw on mask
+    #     cv2.drawContours(contouredImg,[cnt],0,cv2.mean(cv_image,cmask),-1) #draw avarage color on img
+    #
 
+    doors=list()
 
     #find door with edge detection
-    edges = cv2.Canny(shadowless,100,200)
-    image, contours, h = cv2.findContours(edges,1,2)
+    edges = cv2.Canny(gray,100,200)
+    image, contours, h = cv2.findContours(edges,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
     edgeCountered=cv_image.copy()
     cmask = np.zeros(gray.shape,np.uint8)
     for cnt in contours:
         approx = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
-        print("Detected shape has "+str(len(approx)))
         cv2.drawContours(cmask,[cnt],0,255,-1) #draw on mask
-        cv2.drawContours(edgeCountered,[cnt],0,cv2.mean(cv_image,cmask),-1) #draw avarage color on img
+        c=cv2.mean(cv_image,cmask)
+        l=len(approx)
+        a=0
+        t=0
+        if l<8 and c[0]>20 and c[1]>20 and c[2]>20:
+            a=cv2.contourArea(cnt)
+            if a>0:
+                t=1
+        cv2.drawContours(edgeCountered,[cnt],0,c,cv2.FILLED) #draw avarage color on img
+        doors.append([l,a,c,t])
+
+    print("Detected "+str(len(doors))+" shapes")
+    for d in doors:
+        if(d[3]>0):
+            print("Has "+str(d[0])+" lines and "+str(d[1])+" area and color "+str(d[2]))
 
     # h, w = edges.shape[:2]
     # maskFill = np.zeros((h+2, w+2), np.uint8)
@@ -78,10 +93,11 @@ class image_converter:
 
     #image windows
     cv2.imshow("Image window", cv_image)
-    cv2.imshow("Shapes window", contouredImg)
     cv2.imshow("Shapes by edge window", edgeCountered)
     cv2.imshow("Edges window", edges)
-    cv2.imshow("Filtered window", shadowless)
+    cv2.imshow("Doors window", cmask)
+
+
     cv2.waitKey(3)
 
     #move
