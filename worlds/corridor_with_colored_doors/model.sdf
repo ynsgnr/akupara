@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <sdf version='1.6'>
-  <model name='collored_doors_final'>
+  <model name='corridor_with_colored_doors'>
     <pose frame=''>1.97913 -0.758301 0 0 -0 0</pose>
     <link name='Wall_0'>
       <pose frame=''>-1.87913 -0.671699 0 0 -0 0</pose>
