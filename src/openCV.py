@@ -30,6 +30,7 @@ class image_converter:
     self.image_pub = rospy.Publisher(produces,Image,queue_size=1)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber(consumes,Image,self.callback)
+    self.motor_command_publisher = rospy.Publisher("/cmd_vel_mux/input/navi", Twist, queue_size=100)
 
   def callback(self,data):
     try:
@@ -51,31 +52,43 @@ class image_converter:
     image, contours, h = cv2.findContours(blurred,1,2)
     contouredImg=cv_image.copy()
 
+    cmask = np.zeros(gray.shape,np.uint8)
     for cnt in contours:
         approx = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
-        print("Detected shape has "+str(len(approx))+" sides and it is:")
-        if len(approx)==5:
-            print ("pentagon")
-            cv2.drawContours(contouredImg,[cnt],0,255,-1)
-        elif len(approx)==3:
-            print ("triangle")
-            cv2.drawContours(contouredImg,[cnt],0,(0,255,0),-1)
-        elif len(approx)==4:
-            print ("square")
-            cv2.drawContours(contouredImg,[cnt],0,(0,0,255),-1)
-        elif len(approx) == 9:
-            print ("half-circle")
-            cv2.drawContours(contouredImg,[cnt],0,(255,255,0),-1)
-        elif len(approx) > 15:
-            print ("circle")
-            cv2.drawContours(contouredImg,[cnt],0,(0,255,255),-1)
+        print("Detected shape has "+str(len(approx)))
+        cv2.drawContours(cmask,[cnt],0,255,-1) #draw on mask
+        cv2.drawContours(contouredImg,[cnt],0,cv2.mean(cv_image,cmask),-1) #draw avarage color on img
 
 
+    #find door with edge detection
     edges = cv2.Canny(shadowless,100,200)
+    image, contours, h = cv2.findContours(edges,1,2)
+    edgeCountered=cv_image.copy()
+    cmask = np.zeros(gray.shape,np.uint8)
+    for cnt in contours:
+        approx = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
+        print("Detected shape has "+str(len(approx)))
+        cv2.drawContours(cmask,[cnt],0,255,-1) #draw on mask
+        cv2.drawContours(edgeCountered,[cnt],0,cv2.mean(cv_image,cmask),-1) #draw avarage color on img
 
+    # h, w = edges.shape[:2]
+    # maskFill = np.zeros((h+2, w+2), np.uint8)
+    # cv2.floodFill(edges, maskFill, (0,0), 255);
+    # edgeCountered = edgeCountered | cv2.cvtColor(edges,cv2.COLOR_GRAY2BGR)
+
+    #image windows
     cv2.imshow("Image window", cv_image)
     cv2.imshow("Shapes window", contouredImg)
+    cv2.imshow("Shapes by edge window", edgeCountered)
+    cv2.imshow("Edges window", edges)
+    cv2.imshow("Filtered window", shadowless)
     cv2.waitKey(3)
+
+    #move
+    motor_command=Twist()
+    motor_command.linear.x=0
+    motor_command.angular.z=0
+    self.motor_command_publisher.publish(motor_command)
 
     try:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
