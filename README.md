@@ -3,7 +3,7 @@
 A door passing turtlebot for ROS
 
 # Running
-  roslaunch turtlebot_gazebo turtlebot_world.launch world_file:=/home/$USER/catkin_ws/src/akupara/worlds/akupara_playground
+  roslaunch turtlebot_gazebo turtlebot_world.launch world_file:=/home/$USER/catkin_ws/src/akupara/worlds/akupara_playground.world
   if you are running as a different user (or you are SU) please change $USER with your user name
   roslaunch trajectory_skeleton_456 view_robot.launch
   rosrun akupara openCV.py - Do not forget to chmod +x this file
