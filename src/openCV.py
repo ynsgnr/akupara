@@ -3,13 +3,21 @@ from __future__ import print_function
 
 #taken from http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
 
+#ROS stuff
 import roslib
 roslib.load_manifest('akupara')
 import sys
 import rospy
-import cv2
+#Message Types
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import Transform
+from geometry_msgs.msg import Twist
+#Movement Stuff
+import tf
+from tf import transformations
+#Image Processing Stuff
+import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 
