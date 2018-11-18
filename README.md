@@ -21,3 +21,7 @@ A door passing turtlebot for ROS
 # Creating package
   cd ~/catkin/src
   catkin_create_pkg akupara OpenCV tf geometry_msgs std_msgs rospy roscpp
+
+# Note
+  To drive robot around:
+  roslaunch turtlebot_teleop keyboard_teleop.launch

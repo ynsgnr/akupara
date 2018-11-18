@@ -2,7 +2,7 @@
 from __future__ import print_function
 
 import roslib
-roslib.load_manifest('my_package')
+roslib.load_manifest('akupara')
 import sys
 import rospy
 import cv2
@@ -10,13 +10,15 @@ from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+consumes="/camera/rgb/image_raw"
+produces="/detection"
+
 class image_converter:
 
   def __init__(self):
-    self.image_pub = rospy.Publisher("image_topic_2",Image)
-
+    self.image_pub = rospy.Publisher(produces,Image,queue_size=1)
     self.bridge = CvBridge()
-    self.image_sub = rospy.Subscriber("image_topic",Image,self.callback)
+    self.image_sub = rospy.Subscriber(consumes,Image,self.callback)
 
   def callback(self,data):
     try:
