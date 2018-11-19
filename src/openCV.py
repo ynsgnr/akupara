@@ -77,13 +77,8 @@ class image_converter:
         a=0
         t=0
         #Get central coordinates:
-        x=0
-        y=0
-        for v in cnt:
-            x=x+v[0][0]
-            y=y+v[0][1]
-        x=x/len(cnt)
-        y=y/len(cnt)
+        x=cv2.mean(cnt[:,0,0]
+        y=cv2.mean(cnt[:,0,1]
         if l<8 and c[0]>20 and c[1]>20 and c[2]>20:
             a=cv2.contourArea(cnt)
             t=1
