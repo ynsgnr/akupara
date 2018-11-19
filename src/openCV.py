@@ -27,12 +27,14 @@ produces="detection"
 class image_converter:
 
   def __init__(self):
-    self.image_pub = rospy.Publisher(produces,Image,queue_size=1)
+    self.image_pub = rospy.Publisher(produces,Image,queue_size=10)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber(consumes,Image,self.callback)
     self.motor_command_publisher = rospy.Publisher("/cmd_vel_mux/input/navi", Twist, queue_size=100)
     self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
     self.depth_image=np.zeros((640,480))
+    self.forwardMoves=0
+    self.doorColor=(200,50,50)
 
   def callback(self,data):
     try:
@@ -108,34 +110,57 @@ class image_converter:
     cv2.imshow("Depth window", self.depth_image)
 
     #Movement Part
+
+    #avoid walls
     step=0.3
+    angleStep=0.2
     threshold=0.3
     motor_command=Twist()
 
     #calculate mean
     l=len(self.depth_image)
-    self.depth_image[~np.isfinite(self.depth_image)]=-1 #replace NaN and inf
-    ml=cv2.mean(self.depth_image[:l/2,:])[0]
-    mr=cv2.mean(self.depth_image[l/2:,:])[0]
+    self.depth_image[~np.isfinite(self.depth_image)]=0 #replace NaN and inf
+    ml=cv2.mean(self.depth_image[:,:l/2])[0] #left side mean
+    mr=cv2.mean(self.depth_image[:,l/2:])[0] #right side mean
     m=cv2.mean(self.depth_image)[0]
-    print(m)
-    print(ml)
-    print(mr)
+    print(str(ml)+"-"+str(m)+"-"+str(mr))
     if(m<threshold):
+        ml+=0.001
+        mr+=0.001
+        m+=0.001 #prevent zero values
+        motor_command.linear.x=-step
+        self.motor_command_publisher.publish(motor_command)
+        if(ml<mr):
+            motor_command.angular.z=-angleStep/ml
+        else:
+            motor_command.angular.z=angleStep/mr
+        self.motor_command_publisher.publish(motor_command)
         print("Too close to the wall, follow wall")
-    if(ml<threshold):
+    elif(ml<mr and ml<threshold):
+        motor_command.linear.x=step
+        motor_command.angular.z=angleStep
+        self.motor_command_publisher.publish(motor_command)
         print("Too close to left wall, go right")
-    if(mr<threshold):
+    elif(mr<threshold):
+        motor_command.linear.x=step
+        motor_command.angular.z=-angleStep
+        self.motor_command_publisher.publish(motor_command)
         print("Too close to right wall, go left")
+    elif(self.forwardMoves<50):
+        #seems clear move forward
+        self.forwardMoves+=1
+        motor_command.linear.x=step
+        self.motor_command_publisher.publish(motor_command)
+        print("March Forward!")
+    else:
+        print("Seems like there is nothing here lets go other way")
+        motor_command.angular.z=1.5
+        self.motor_command_publisher.publish(motor_command)
+        self.forwardMoves=0
+
 
 
     cv2.waitKey(3)
-
-    #move
-    motor_command.angular.z=0
-
-
-    self.motor_command_publisher.publish(motor_command)
 
     try:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
