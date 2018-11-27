@@ -185,6 +185,17 @@ class image_converter:
             #Then calculate color distance
             colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
 
+            print("\n")
+            x=d[4][0][0]
+            print(x)
+            print(len(cv_image)/3)
+            if(colorDiffN<colorThreshold):
+                if(x>2*(len(cv_image)/3)):
+                    print("turn left")
+                elif(x>len(cv_image)/3):
+                    print("go to empty space")
+                else:
+                    print("turn right")
 
             # print("Color test: LAB")
             # print(dc)
@@ -197,7 +208,7 @@ class image_converter:
             # print("Color test: N")
             # print(normalizedDoorColor[0][0])
             # print(normalizedPredefinedColor[0][0])
-            # print(colorDiffN)
+            print(colorDiffN)
 
         #seems clear move forward
         self.forwardMoves+=1
