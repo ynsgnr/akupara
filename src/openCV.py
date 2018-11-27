@@ -27,7 +27,6 @@ produces="detection"
 class image_converter:
 
   def __init__(self):
-    self.image_pub = rospy.Publisher(produces,Image,queue_size=10)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber(consumes,Image,self.callback)
     self.motor_command_publisher = rospy.Publisher("/cmd_vel_mux/input/navi", Twist, queue_size=100)
@@ -54,7 +53,7 @@ class image_converter:
     #find door with countours
     ret,thresh = cv2.threshold(gray,10,255,1)
     inverted=cv2.bitwise_not(thresh)
-    blurred = cv2.dilate(inverted,np.ones((5, 5), np.uint8),iterations = 2 )
+    blurred = cv2.dilate(inverted,np.ones((20, 20), np.uint8),iterations = 2 )
     image, contours, h = cv2.findContours(blurred,1,2)
 
     editedImage=cv_image.copy()
@@ -75,15 +74,12 @@ class image_converter:
             cv2.drawContours(editedImage,[cnt],0,(255-c[0],255-c[1],255-c[2]),cv2.FILLED) #draw avarage color on img
         doors.append([l,a,c,v,(x,y)])
 
-    #image windows
-    cv2.imshow("Shapes by shapes window", editedImage)
-
     #Movement Part
 
     #step constants
     step=0.3
-    angleStep=0.2
-    threshold=0.3
+    angleStep=0.3
+    threshold=0.7
     colorThreshold=50
     motor_command=Twist()
 
@@ -93,7 +89,6 @@ class image_converter:
     ml=cv2.mean(self.depth_image[:,:l/2])[0] #left side mean
     mr=cv2.mean(self.depth_image[:,l/2:])[0] #right side mean
     m=cv2.mean(self.depth_image)[0]
-    print(str(ml)+"-"+str(m)+"-"+str(mr))
     if(m<threshold):
         ml+=0.001
         mr+=0.001
@@ -106,18 +101,20 @@ class image_converter:
             motor_command.angular.z=angleStep/mr
         self.motor_command_publisher.publish(motor_command)
         print("Too close to the wall, follow wall")
-    elif(ml<mr and ml<threshold):
+    elif(ml<mr and ml<(threshold*2)):
         motor_command.linear.x=step
         motor_command.angular.z=angleStep
         self.motor_command_publisher.publish(motor_command)
         print("Too close to left wall, go right")
-    elif(mr<threshold):
+    elif(mr<(threshold*2)):
         motor_command.linear.x=step
         motor_command.angular.z=-angleStep
         self.motor_command_publisher.publish(motor_command)
         print("Too close to right wall, go left")
-    elif(self.forwardMoves<50):
+    if(self.forwardMoves<50):
         #check doors, structure: [l,a,c,v,(x,y)]
+        turnWay=0
+        #voting system for doors
         for door in doors:
 
             #Normalize Pixel RGB Values
@@ -130,21 +127,31 @@ class image_converter:
             #Then calculate color distance in RGB. LAB distance does not give good results
             colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
 
-            print("\n")
-            x=d[4][0][0]
-            print(x)
-            print(len(cv_image)/3)
-            if(colorDiffN<colorThreshold):
-                if(x>2*(len(cv_image)/3)):
-                    print("turn left")
-                elif(x>len(cv_image)/3):
-                    print("go to empty space")
+            x=door[4][0][0]
+            if(x>2*(len(cv_image)/3)):
+                print("door is right")
+                t=-angleStep
+            elif(x>len(cv_image)/3):
+                print("door is middle")
+                if(ml<mr):
+                    t=-angleStep
                 else:
-                    print("turn right")
+                    t=angleStep
+            else:
+                print("door is left")
+                t=angleStep
+
+            if(colorDiffN<colorThreshold):
+                print("Good Door")
+                turnWay+=t
+            else:
+                print("Bad Door")
+                turnWay-=t
 
         #seems clear move forward
         self.forwardMoves+=1
         motor_command.linear.x=step
+        motor_command.angular.z=turnWay
         self.motor_command_publisher.publish(motor_command)
         print("March Forward!")
     else:
@@ -153,13 +160,11 @@ class image_converter:
         self.motor_command_publisher.publish(motor_command)
         self.forwardMoves=0
 
-
+    #image windows
+    cv2.imshow("Shapes by shapes window", editedImage)
+    cv2.imshow("Edited Image window", blurred)
+    
     cv2.waitKey(3)
-
-    try:
-      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-    except CvBridgeError as e:
-      print(e)
 
   def depth_callback(self,msg_depth):
       try:
