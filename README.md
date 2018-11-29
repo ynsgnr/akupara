@@ -10,6 +10,9 @@ A door passing turtlebot for ROS
 
   - If doesnt work try running as sudo (if installiation done as sudo)
 
+  To publish color:
+  rostopic pub door_color std_msgs/String red
+
   To display camera topic:
 
   rostopic echo /camera/rgb/image_raw
