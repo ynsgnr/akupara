@@ -21,19 +21,19 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 
-consumes="/camera/rgb/image_raw"
-produces="detection"
-
 class image_converter:
 
   def __init__(self):
     self.bridge = CvBridge()
-    self.image_sub = rospy.Subscriber(consumes,Image,self.callback)
+    self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
+    self.door_color_sub = rospy.Subscriber("door_color",String,self.color_call)
     self.motor_command_publisher = rospy.Publisher("/cmd_vel_mux/input/navi", Twist, queue_size=100)
     self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
     self.depth_image=np.zeros((640,480))
     self.forwardMoves=0
-    self.doorColor=(0,255,255)
+    self.colors={'blue':(255,0,0),'green':(0,255,0),'pink':(255,255,0),'yellow':(0,255,255),'red':(0,0,255)}
+    self.doorColor=(255,0,0)
+    self.move=False
 
   def callback(self,data):
     try:
@@ -75,12 +75,15 @@ class image_converter:
         doors.append([l,a,c,v,(x,y)])
 
     #Movement Part
+    if(not self.move):
+        return
 
     #step constants
     step=0.3
     angleStep=0.3
-    threshold=0.7
+    threshold=0.5
     colorThreshold=50
+    areaThreshold=0.3
     motor_command=Twist()
 
     #calculate mean
@@ -93,78 +96,115 @@ class image_converter:
         ml+=0.001
         mr+=0.001
         m+=0.001 #prevent zero values
-        motor_command.linear.x=-step
+        motor_command.linear.x=-step/(ml+mr)
         self.motor_command_publisher.publish(motor_command)
         if(ml<mr):
             motor_command.angular.z=-angleStep/ml
         else:
             motor_command.angular.z=angleStep/mr
         self.motor_command_publisher.publish(motor_command)
+        motor_command.angular.z=-motor_command.angular.z
+        self.motor_command_publisher.publish(motor_command)
         print("Too close to the wall, follow wall")
     elif(ml<mr and ml<(threshold*2)):
         motor_command.linear.x=step
         motor_command.angular.z=angleStep
+        self.motor_command_publisher.publish(motor_command)
+        motor_command.angular.z=-motor_command.angular.z
         self.motor_command_publisher.publish(motor_command)
         print("Too close to left wall, go right")
     elif(mr<(threshold*2)):
         motor_command.linear.x=step
         motor_command.angular.z=-angleStep
         self.motor_command_publisher.publish(motor_command)
+        motor_command.angular.z=-motor_command.angular.z
+        self.motor_command_publisher.publish(motor_command)
         print("Too close to right wall, go left")
-    if(self.forwardMoves<50):
+    else:
         #check doors, structure: [l,a,c,v,(x,y)]
-        turnWay=0
-        #voting system for doors
-        for door in doors:
 
-            #Normalize Pixel RGB Values
-            pixelsND=np.zeros((1,1,3),np.uint8)
-            pixelsNP=np.zeros((1,1,3),np.uint8)
-            pixelsND[0][0]=door[2]
-            pixelsNP[0][0]=self.doorColor
-            normalizedDoorColor = cv2.normalize(pixelsND, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            normalizedPredefinedColor = cv2.normalize(pixelsNP, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            #Then calculate color distance in RGB. LAB distance does not give good results
+        totalArea=len(cv_image)*len(cv_image)
+
+        colorDiffN=9999
+        if len(doors)==2:
+            tmp=np.zeros((1,1,3),np.uint8)
+            tmp[0][0]=doors[0][2]
+            normalizedDoorColor = cv2.normalize(tmp, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            tmp=np.zeros((1,1,3),np.uint8)
+            tmp[0][0]=doors[1][2]
+            normalizedDoorColor2 = cv2.normalize(tmp, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            normalizedPredefinedColor = cv2.normalize(self.doorColor, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
+            colorDiffN2=np.sqrt((np.power(np.subtract(normalizedDoorColor2,normalizedPredefinedColor),2)).sum())
+        if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold):
+            if (doors[0][4][0][0]>(len(cv_image)/2) and doors[1][4][0][0]<(len(cv_image)/2)) or (doors[0][4][0][0]<(len(cv_image)/2) and doors[1][4][0][0]>(len(cv_image)/2)):
+             if(ml<mr):
+                 t=-angleStep/2
+             else:
+                 t=angleStep/2
+            motor_command.linear.x=step
+            motor_command.angular.z=t
+            self.motor_command_publisher.publish(motor_command)
+            motor_command.angular.z=-t
+            self.motor_command_publisher.publish(motor_command)
+        else:
+            for door in doors:
 
-            x=door[4][0][0]
-            if(x>2*(len(cv_image)/3)):
-                print("door is right")
-                t=-angleStep
-            elif(x>len(cv_image)/3):
-                print("door is middle")
-                if(ml<mr):
-                    t=-angleStep
-                else:
+                #Normalize Pixel RGB Values
+                pixelsND=np.zeros((1,1,3),np.uint8)
+                pixelsNP=np.zeros((1,1,3),np.uint8)
+                pixelsND[0][0]=door[2]
+                pixelsNP[0][0]=self.doorColor
+                normalizedDoorColor = cv2.normalize(pixelsND, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                normalizedPredefinedColor = cv2.normalize(pixelsNP, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+                #Then calculate color distance in RGB. LAB distance does not give good results
+                colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
+
+
+                motor_command.linear.x=0
+                x=door[4][0][0]
+                if(x>2*(len(cv_image)/3)):
+                    print("door is right")
                     t=angleStep
-            else:
-                print("door is left")
-                t=angleStep
+                elif(x>len(cv_image)/3):
+                    print("door is middle")
+                    if(ml<mr):
+                        t=angleStep
+                    else:
+                        t=-angleStep
+                else:
+                    print("door is left")
+                    t=-angleStep
 
-            if(colorDiffN<colorThreshold):
-                print("Good Door")
-                turnWay+=t
-            else:
-                print("Bad Door")
-                turnWay-=t
+                if(colorDiffN<colorThreshold):
+                    print("Good Door")
+                    motor_command.angular.z=t
+                else:
+                    print("Bad Door")
+                    motor_command.angular.z=0
+                t=0
+                self.motor_command_publisher.publish(motor_command)
+                motor_command.angular.z=-motor_command.angular.z
+                self.motor_command_publisher.publish(motor_command)
 
         #seems clear move forward
         self.forwardMoves+=1
         motor_command.linear.x=step
-        motor_command.angular.z=turnWay
         self.motor_command_publisher.publish(motor_command)
         print("March Forward!")
-    else:
-        print("Seems like there is nothing here lets go other way")
-        motor_command.angular.z=1.5
-        self.motor_command_publisher.publish(motor_command)
-        self.forwardMoves=0
-
     #image windows
     cv2.imshow("Shapes by shapes window", editedImage)
-    cv2.imshow("Edited Image window", blurred)
-    
+
     cv2.waitKey(3)
+
+  def color_call(self,msg_str):
+      color=msg_str.data
+      if color in self.colors:
+          print("Going to the "+color+" door")
+          self.move=True
+          self.doorColor=self.colors[color]
+      else:
+          print("Undefined color")
 
   def depth_callback(self,msg_depth):
       try:
