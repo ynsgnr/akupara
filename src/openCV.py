@@ -156,20 +156,22 @@ class image_converter:
             print(colorDiffN)
             print(colorDiffN2)
             if ((doors[0][4][0][0]>((len(cv_image)/2)+fieldSize) and doors[1][4][0][0]<(len(cv_image)/2)-fieldSize) or (doors[0][4][0][0]<((len(cv_image)/2)-fieldSize) and doors[1][4][0][0]>(len(cv_image)/2)+fieldSize) and (colorDiffN-colorDiffN2)<5):
-                if((ml-mr)<0.1):
+                if(abs(ml-mr)<0.1):
                     t=-angleStep
                 else:
                     t=angleStep
                 motor_command.linear.x=0
                 if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold):
                     print("Color match")
-                    motor_command.angular.z=0
+                    if(abs(ml-mr)>0.1):
+                        motor_command.angular.z=mr-ml
+                    else:
+                        motor_command.angular.z=0
                     motor_command.linear.x=step
                 else:
                     print("Color does not match")
                     motor_command.linear.x=0
                     motor_command.angular.z=2
-                print(t)
                 self.motor_command_publisher.publish(motor_command)
                 doors=list() #reset rist to prevent next for loop
                 shouldMove=False
