@@ -177,6 +177,10 @@ class image_converter:
                 normalizedPredefinedColor = cv2.normalize(pixelsNP, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
                 #Then calculate color distance in RGB. LAB distance does not give good results
                 colorDiffN=np.sqrt((np.power(np.subtract(np.transpose(normalizedDoorColor[0]),normalizedPredefinedColor),2)).sum())
+            normalizedDoorColor = cv2.normalize(np.transpose(pixelsND[0]), None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            if(normalizedDoorColor.shape==(1,1,3)):
+                print("Use transpose")
+                normalizedDoorColor=np.transpose(normalizedDoorColor[0])
 
 
             motor_command.linear.x=step
