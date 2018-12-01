@@ -115,6 +115,7 @@ class image_converter:
         motor_command.angular.z=-motor_command.angular.z
         self.motor_command_publisher.publish(motor_command)
         print("Too close to the wall, follow wall")
+        shouldMove=False
     elif(ml<mr and ml<threshold):
         motor_command.linear.x=step
         motor_command.angular.z=angleStep*randomizer
@@ -122,6 +123,7 @@ class image_converter:
         motor_command.angular.z=-motor_command.angular.z
         self.motor_command_publisher.publish(motor_command)
         print("Too close to left wall, go right")
+        shouldMove=False
     elif(mr<threshold):
         motor_command.linear.x=step
         motor_command.angular.z=-angleStep*randomizer
@@ -129,9 +131,10 @@ class image_converter:
         motor_command.angular.z=-motor_command.angular.z
         self.motor_command_publisher.publish(motor_command)
         print("Too close to right wall, go left")
+        shouldMove=False
     else:
         #check doors, structure: [l,a,c,v,(x,y)]
-
+        shouldMove=True
         self.stepCount=0
 
         totalArea=len(cv_image)*len(cv_image)
@@ -207,12 +210,15 @@ class image_converter:
                 self.motor_command_publisher.publish(motor_command)
                 motor_command.angular.z=-motor_command.angular.z
                 self.motor_command_publisher.publish(motor_command)
+            shouldMove=False
 
         #seems clear move forward
-        self.forwardMoves+=1
-        motor_command.linear.x=step
-        self.motor_command_publisher.publish(motor_command)
-        print("March Forward!")
+        if(shouldMove):
+            self.forwardMoves+=1
+            motor_command.linear.x=step
+            motor_command.angular.z=0
+            self.motor_command_publisher.publish(motor_command)
+            print("March Forward!")
 
     cv2.waitKey(3)
     self.r.sleep()
