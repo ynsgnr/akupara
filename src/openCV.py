@@ -146,8 +146,13 @@ class image_converter:
             tmp[0][0]=doors[1][2]
             normalizedDoorColor2 = cv2.normalize(tmp, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             normalizedPredefinedColor = cv2.normalize(self.doorColor, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            colorDiffN=np.sqrt((np.power(np.subtract(np.transpose(normalizedDoorColor[0]),normalizedPredefinedColor),2)).sum())
-            colorDiffN2=np.sqrt((np.power(np.subtract(np.transpose(normalizedDoorColor2[0]),normalizedPredefinedColor),2)).sum())
+            if(normalizedDoorColor.shape==(1,1,3)):
+                normalizedDoorColor=np.transpose(normalizedDoorColor[0])
+            if(normalizedDoorColor2.shape==(1,1,3)):
+                normalizedDoorColor2=np.transpose(normalizedDoorColor2[0])
+            colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
+            colorDiffN2=np.sqrt((np.power(np.subtract(normalizedDoorColor2,normalizedPredefinedColor),2)).sum())
+            fieldSize=100
             if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold):
                 print(doors[0][4][0][0]>(len(cv_image)/2) and doors[1][4][0][0]<(len(cv_image)/2))
                 print(doors[0][4][0][0]<(len(cv_image)/2) and doors[1][4][0][0]>(len(cv_image)/2))
