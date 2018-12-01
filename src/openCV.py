@@ -101,34 +101,28 @@ class image_converter:
     ml=cv2.mean(self.depth_image[:,:l/2])[0] #left side mean
     mr=cv2.mean(self.depth_image[:,l/2:])[0] #right side mean
     m=cv2.mean(self.depth_image)[0]
+    motor_command.linear.x=step
     if(m<threshold*2):
         ml+=0.001
         mr+=0.001
         m+=0.001 #prevent zero values
-        motor_command.linear.x=(-step/(ml+mr))*randomizer
-        self.motor_command_publisher.publish(motor_command)
+        motor_command.linear.x=-step
         if(ml<mr):
             motor_command.angular.z=-angleStep/ml*randomizer
         else:
             motor_command.angular.z=angleStep/mr*randomizer
         self.motor_command_publisher.publish(motor_command)
-        motor_command.angular.z=-motor_command.angular.z
-        self.motor_command_publisher.publish(motor_command)
         print("Too close to the wall, follow wall")
         shouldMove=False
     elif(ml<mr and ml<threshold):
         motor_command.linear.x=step
-        motor_command.angular.z=angleStep*randomizer
-        self.motor_command_publisher.publish(motor_command)
-        motor_command.angular.z=-motor_command.angular.z
+        motor_command.angular.z=-angleStep*randomizer
         self.motor_command_publisher.publish(motor_command)
         print("Too close to left wall, go right")
         shouldMove=False
     elif(mr<threshold):
         motor_command.linear.x=step
         motor_command.angular.z=-angleStep*randomizer
-        self.motor_command_publisher.publish(motor_command)
-        motor_command.angular.z=-motor_command.angular.z
         self.motor_command_publisher.publish(motor_command)
         print("Too close to right wall, go left")
         shouldMove=False
@@ -142,7 +136,7 @@ class image_converter:
         colorDiffN=9999
         print(len(doors))
         if len(doors)==2:
-            print("Go throught door")
+            print("Only one door is visible")
             tmp=np.zeros((1,1,3),np.uint8)
             tmp[0][0]=doors[0][2]
             normalizedDoorColor = cv2.normalize(tmp, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
@@ -185,31 +179,27 @@ class image_converter:
                 colorDiffN=np.sqrt((np.power(np.subtract(np.transpose(normalizedDoorColor[0]),normalizedPredefinedColor),2)).sum())
 
 
-                motor_command.linear.x=0
-                x=door[4][0][0]
-                if(x>2*(len(cv_image)/3)):
-                    print("door is right")
+            motor_command.linear.x=step
+            x=door[4][0][0]
+            if(x>2*(len(cv_image)/3)):
+                print("door is right")
+                t=-angleStep
+            elif(x>len(cv_image)/3):
+                print("door is middle")
+                if((ml-mr)<threshold):
                     t=angleStep
-                elif(x>len(cv_image)/3):
-                    print("door is middle")
-                    if(ml<mr):
-                        t=angleStep
-                    else:
-                        t=-angleStep
                 else:
-                    print("door is left")
                     t=-angleStep
-
-                if(colorDiffN<colorThreshold):
-                    print("Good Door")
-                    motor_command.angular.z=t
-                else:
-                    print("Bad Door")
-                    motor_command.angular.z=0
-                t=0
-                self.motor_command_publisher.publish(motor_command)
-                motor_command.angular.z=-motor_command.angular.z
-                self.motor_command_publisher.publish(motor_command)
+            else:
+                print("door is left")
+                t=angleStep
+            if(colorDiffN<colorThreshold):
+                print("Good Door")
+                motor_command.angular.z=t
+            else:
+                print("Bad Door")
+                motor_command.angular.z=-t
+            self.motor_command_publisher.publish(motor_command)
             shouldMove=False
 
         #seems clear move forward
