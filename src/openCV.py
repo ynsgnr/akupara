@@ -152,35 +152,41 @@ class image_converter:
             colorDiffN2=np.sqrt((np.power(np.subtract(normalizedDoorColor2,normalizedPredefinedColor),2)).sum())
             fieldSize=100
             if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold):
-                print(doors[0][4][0][0]>(len(cv_image)/2) and doors[1][4][0][0]<(len(cv_image)/2))
-                print(doors[0][4][0][0]<(len(cv_image)/2) and doors[1][4][0][0]>(len(cv_image)/2))
-                if (doors[0][4][0][0]>(len(cv_image)/2) and doors[1][4][0][0]<(len(cv_image)/2)) or (doors[0][4][0][0]<(len(cv_image)/2) and doors[1][4][0][0]>(len(cv_image)/2)):
-                    print("Tring to not the hit corners")
-                    if(ml<mr):
-                        t=-angleStep/2
-                    else:
-                        t=angleStep/2
+                fieldSize=30
+            print(colorDiffN)
+            print(colorDiffN2)
+            if ((doors[0][4][0][0]>((len(cv_image)/2)+fieldSize) and doors[1][4][0][0]<(len(cv_image)/2)-fieldSize) or (doors[0][4][0][0]<((len(cv_image)/2)-fieldSize) and doors[1][4][0][0]>(len(cv_image)/2)+fieldSize) and (colorDiffN-colorDiffN2)<5):
+                if((ml-mr)<0.1):
+                    t=-angleStep
+                else:
+                    t=angleStep
+                motor_command.linear.x=0
+                if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold):
+                    print("Color match")
+                    motor_command.angular.z=0
                     motor_command.linear.x=step
-                    motor_command.angular.z=t
-                    self.motor_command_publisher.publish(motor_command)
-                    motor_command.angular.z=-t
-                    self.motor_command_publisher.publish(motor_command)
-        else:
-            for door in doors:
+                else:
+                    print("Color does not match")
+                    motor_command.linear.x=0
+                    motor_command.angular.z=2
+                print(t)
+                self.motor_command_publisher.publish(motor_command)
+                doors=list() #reset rist to prevent next for loop
+                shouldMove=False
 
-                #Normalize Pixel RGB Values
-                pixelsND=np.zeros((1,1,3),np.uint8)
-                pixelsNP=np.zeros((1,1,3),np.uint8)
-                pixelsND[0][0]=door[2]
-                pixelsNP[0][0]=self.doorColor
-                normalizedDoorColor = cv2.normalize(pixelsND, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                normalizedPredefinedColor = cv2.normalize(pixelsNP, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                #Then calculate color distance in RGB. LAB distance does not give good results
-                colorDiffN=np.sqrt((np.power(np.subtract(np.transpose(normalizedDoorColor[0]),normalizedPredefinedColor),2)).sum())
+        for door in doors:
+            #Normalize Pixel RGB Values
+            pixelsND=np.zeros((1,1,3),np.uint8)
+            pixelsNP=np.zeros((1,1,3),np.uint8)
+            pixelsND[0][0]=door[2]
+            pixelsNP[0][0]=self.doorColor
             normalizedDoorColor = cv2.normalize(np.transpose(pixelsND[0]), None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             if(normalizedDoorColor.shape==(1,1,3)):
                 print("Use transpose")
                 normalizedDoorColor=np.transpose(normalizedDoorColor[0])
+            normalizedPredefinedColor = cv2.normalize(np.transpose(pixelsNP[0]), None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+            #Then calculate color distance in RGB. LAB distance does not give good results
+            colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
 
 
             motor_command.linear.x=step
