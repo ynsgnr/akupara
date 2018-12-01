@@ -36,6 +36,7 @@ class image_converter:
     self.doorColor=(255,0,0)
     self.move=False
     self.stepCount=0
+    self.r=rospy.Rate(10)
 
   def callback(self,data):
     try:
@@ -214,6 +215,7 @@ class image_converter:
         print("March Forward!")
 
     cv2.waitKey(3)
+    self.r.sleep()
 
   def color_call(self,msg_str):
       color=msg_str.data
@@ -232,8 +234,8 @@ class image_converter:
 
 
 def main(args):
-  ic = image_converter()
   rospy.init_node('image_converter', anonymous=True)
+  ic = image_converter()
   try:
     rospy.spin()
   except KeyboardInterrupt:
