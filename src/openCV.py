@@ -88,11 +88,11 @@ class image_converter:
     #step constants
     step=0.3
     angleStep=0.3
-    threshold=0.2
-    colorThreshold=50
+    threshold=0.3
+    colorThreshold=70
     areaThreshold=0.3
     self.stepCount+=1
-    randomizer=random.uniform(0, 1)*self.stepCount
+    randomizer=random.uniform(0, 1)*(self.stepCount+1)
     motor_command=Twist()
 
     #calculate mean
