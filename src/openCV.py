@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-#taken from http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
+#this code had been build upon a template from http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
 
 #ROS stuff
 import roslib
@@ -25,8 +25,11 @@ import random
 class image_converter:
 
   def __init__(self):
+    #//*** BELOW CODE TAKEN FROM http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
+
+    #//** BELOW CODE ADDED BY TEAM YUNUS
     self.door_color_sub = rospy.Subscriber("door_color",String,self.color_call)
     self.motor_command_publisher = rospy.Publisher("/cmd_vel_mux/input/navi", Twist, queue_size=100)
     self.depth_sub = rospy.Subscriber("/camera/depth/image_raw",Image,self.depth_callback)
@@ -53,7 +56,7 @@ class image_converter:
 
     doors=list()
 
-    #find door with countours
+    #find doors with countours
     ret,thresh = cv2.threshold(gray,10,255,1)
     inverted=cv2.bitwise_not(thresh)
     blurred = cv2.dilate(inverted,np.ones((20, 20), np.uint8),iterations = 2 )
@@ -76,10 +79,10 @@ class image_converter:
             a=cv2.contourArea(cnt)
             v=1
             cv2.drawContours(editedImage,[cnt],0,(255-c[0],255-c[1],255-c[2]),cv2.FILLED) #draw avarage color on img
-        doors.append([l,a,c,v,(x,y)])
+        doors.append([l,a,c,v,(x,y)]) # length, area, contours, validity, coordinates
 
-    #image windows
-    cv2.imshow("Shapes by shapes window", editedImage)
+    #image window
+    cv2.imshow("Shapes window", editedImage)
 
     #Movement Part
     if(not self.move):
@@ -137,6 +140,7 @@ class image_converter:
         print(len(doors))
         if len(doors)==2:
             print("Only one door is visible")
+            #normalize color and calculate color distance
             tmp=np.zeros((1,1,3),np.uint8)
             tmp[0][0]=doors[0][2]
             normalizedDoorColor = cv2.normalize(tmp, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
@@ -148,13 +152,11 @@ class image_converter:
                 normalizedDoorColor=np.transpose(normalizedDoorColor[0])
             if(normalizedDoorColor2.shape==(1,1,3)):
                 normalizedDoorColor2=np.transpose(normalizedDoorColor2[0])
-            colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
+            colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum()) #color distance
             colorDiffN2=np.sqrt((np.power(np.subtract(normalizedDoorColor2,normalizedPredefinedColor),2)).sum())
             fieldSize=100
-            if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold):
-                fieldSize=30
-            print(colorDiffN)
-            print(colorDiffN2)
+            if(colorDiffN<colorThreshold and colorDiffN2<colorThreshold): #detect if shapes in the picture are same color or not
+                fieldSize=30 #if they are same color, decrese threshold for alignment
             if ((doors[0][4][0][0]>((len(cv_image)/2)+fieldSize) and doors[1][4][0][0]<(len(cv_image)/2)-fieldSize) or (doors[0][4][0][0]<((len(cv_image)/2)-fieldSize) and doors[1][4][0][0]>(len(cv_image)/2)+fieldSize) and (colorDiffN-colorDiffN2)<5):
                 if(abs(ml-mr)<0.1):
                     t=-angleStep
@@ -173,7 +175,7 @@ class image_converter:
                     motor_command.linear.x=0
                     motor_command.angular.z=-2
                 self.motor_command_publisher.publish(motor_command)
-                doors=list() #reset rist to prevent next for loop
+                doors=list() #reset list to prevent next for loop
                 shouldMove=False
 
         for door in doors:
@@ -190,7 +192,7 @@ class image_converter:
             #Then calculate color distance in RGB. LAB distance does not give good results
             colorDiffN=np.sqrt((np.power(np.subtract(normalizedDoorColor,normalizedPredefinedColor),2)).sum())
 
-
+            #move according to a gravity model of wanted and unwanted doors
             motor_command.linear.x=step
             x=door[4][0][0]
             if(x>2*(len(cv_image)/3)):
@@ -240,7 +242,7 @@ class image_converter:
       except CvBridgeError as e:
          print(e)
 
-
+#//*** BELOW CODE TAKEN FROM http://wiki.ros.org/cv_bridge/Tutorials/ConvertingBetweenROSImagesAndOpenCVImagesPython
 def main(args):
   rospy.init_node('image_converter', anonymous=True)
   ic = image_converter()
