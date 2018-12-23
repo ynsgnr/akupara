@@ -171,7 +171,7 @@ class image_converter:
                 else:
                     print("Color does not match")
                     motor_command.linear.x=0
-                    motor_command.angular.z=2
+                    motor_command.angular.z=-2
                 self.motor_command_publisher.publish(motor_command)
                 doors=list() #reset rist to prevent next for loop
                 shouldMove=False
